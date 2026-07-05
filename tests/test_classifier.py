@@ -16,23 +16,37 @@ def _features():
     )
 
 
-class _FakeResponse:
-    def __init__(self, text):
-        self.text = text
+class _FakeMessage:
+    def __init__(self, content):
+        self.content = content
 
 
-class _FakeModels:
+class _FakeChoice:
+    def __init__(self, content):
+        self.message = _FakeMessage(content)
+
+
+class _FakeChatResponse:
+    def __init__(self, content):
+        self.choices = [_FakeChoice(content)]
+
+
+class _FakeCompletions:
     def __init__(self, responses):
         self._responses = list(responses)
 
-    def generate_content(self, **kwargs):
-        return _FakeResponse(self._responses.pop(0))
+    def create(self, **kwargs):
+        return _FakeChatResponse(self._responses.pop(0))
+
+
+class _FakeChat:
+    def __init__(self, responses):
+        self.completions = _FakeCompletions(responses)
 
 
 class _FakeClient:
-    """Mimics google.genai.Client's .models.generate_content() interface."""
     def __init__(self, responses):
-        self.models = _FakeModels(responses)
+        self.chat = _FakeChat(responses)
 
 
 VALID_JSON = json.dumps({
