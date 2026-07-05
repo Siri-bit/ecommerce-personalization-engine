@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Shopper State Simulator</title>
+<style>
+  :root { --bg:#0f1115; --card:#1a1d24; --accent:#6366f1; --text:#e6e6e6; --muted:#9aa0aa; --good:#22c55e; --warn:#f59e0b; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 32px; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  p.sub { color: var(--muted); margin-top: 0; margin-bottom: 24px; font-size: 14px; }
+  .layout { display: grid; grid-template-columns: 340px 1fr; gap: 24px; max-width: 980px; }
+  .card { background: var(--card); border-radius: 12px; padding: 20px; border: 1px solid #2a2d36; }
+  .btn { display:block; width:100%; text-align:left; background:#22252e; color:var(--text); border:1px solid #2f333d;
+         border-radius:8px; padding:10px 14px; margin-bottom:8px; cursor:pointer; font-size:13px; }
+  .btn:hover { border-color: var(--accent); }
+  .state-badge { display:inline-block; padding:6px 14px; border-radius:20px; font-weight:600; font-size:14px; text-transform: uppercase; letter-spacing:0.03em; }
+  .conf-bar-bg { background:#22252e; border-radius:6px; height:10px; margin-top:6px; overflow:hidden; }
+  .conf-bar-fill { height:100%; background: linear-gradient(90deg, var(--accent), var(--good)); }
+  .evidence-list { margin: 12px 0 0 0; padding-left: 18px; font-size: 13px; color: var(--muted); }
+  .reasoning { font-size: 13px; color: var(--text); margin-top: 12px; line-height:1.5; }
+  .action-box { background: #14202a; border: 1px solid #1f3a4d; border-radius: 8px; padding: 12px; margin-top: 12px; font-size: 13px; }
+  .event-log { font-size: 12px; color: var(--muted); margin-top: 16px; max-height: 140px; overflow-y: auto; }
+  .reset { background: none; border: 1px solid #3a3d46; color: var(--muted); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-top: 16px; }
+  .loading { color: var(--muted); font-size: 13px; }
+  .apikey-row { margin-bottom: 20px; font-size: 12px; color: var(--muted); }
+  .apikey-row input { background:#22252e; border:1px solid #2f333d; color:var(--text); padding:6px 10px; border-radius:6px; width: 220px; }
+</style>
+</head>
+<body>
+  <h1>Shopper State Simulator</h1>
+  <p class="sub">Click events below to build a live session. Classification updates in real time against the FastAPI backend.</p>
+
+  <div class="apikey-row">
+    Backend URL: <input id="backendUrl" value="http://localhost:8000" />
+  </div>
+
+  <div class="layout">
+    <div class="card">
+      <strong style="font-size:13px; color:var(--muted);">ADD EVENT</strong>
+      <div style="margin-top:12px;">
+        <button class="btn" data-type="page_view_home">+ View Home</button>
+        <button class="btn" data-type="page_view_collection" data-target="running-shoes">+ View Collection (running-shoes)</button>
+        <button class="btn" data-type="page_view_pdp" data-target="p_701">+ View PDP (p_701)</button>
+        <button class="btn" data-type="page_view_pdp" data-target="p_702">+ View PDP (p_702)</button>
+        <button class="btn" data-type="filter_applied" data-target="price:low-high">+ Apply Filter (price)</button>
+        <button class="btn" data-type="coupon_lookup">+ Look Up Coupon</button>
+        <button class="btn" data-type="add_to_cart" data-target="p_701">+ Add to Cart</button>
+        <button class="btn" data-type="remove_from_cart" data-target="p_701">+ Remove from Cart</button>
+        <button class="btn" data-type="checkout_start">+ Start Checkout</button>
+        <button class="btn" data-type="checkout_abandon">+ Abandon Checkout</button>
+        <button class="btn" data-type="purchase" data-target="p_701">+ Purchase</button>
+      </div>
+      <button class="reset" id="resetBtn">Reset Session</button>
+      <div class="event-log" id="eventLog"></div>
+    </div>
+
+    <div class="card">
+      <strong style="font-size:13px; color:var(--muted);">LIVE CLASSIFICATION</strong>
+      <div id="result" style="margin-top:14px;">
+        <span class="loading">Click an event to begin...</span>
+      </div>
+    </div>
+  </div>
+
+<script>
+const sessionId = "sim_" + Math.random().toString(36).slice(2, 9);
+const eventLogEl = document.getElementById("eventLog");
+const resultEl = document.getElementById("result");
+const backendUrlEl = document.getElementById("backendUrl");
+
+function backend() { return backendUrlEl.value.replace(/\/$/, ""); }
+
+function logEvent(type, target) {
+  const line = document.createElement("div");
+  line.textContent = `• ${type}` + (target ? ` (${target})` : "");
+  eventLogEl.prepend(line);
+}
+
+function renderResult(payload) {
+  const c = payload.classification;
+  const pct = Math.round(c.confidence * 100);
+  resultEl.innerHTML = `
+    <span class="state-badge" style="background:#22252e; color:#a5b4fc;">${c.state.replace(/_/g,' ')}</span>
+    <div class="conf-bar-bg"><div class="conf-bar-fill" style="width:${pct}%"></div></div>
+    <div style="font-size:12px; color:var(--muted); margin-top:4px;">${pct}% confidence</div>
+    <ul class="evidence-list">${c.evidence.map(e => `<li>${e}</li>`).join("")}</ul>
+    <div class="action-box"><strong>Recommended action:</strong><br/>${c.recommended_action}</div>
+    <div class="reasoning">${c.reasoning}</div>
+  `;
+}
+
+async function sendEvent(type, target) {
+  logEvent(type, target);
+  resultEl.innerHTML = '<span class="loading">Reclassifying...</span>';
+  try {
+    const res = await fetch(`${backend()}/simulate/${sessionId}/event`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, target: target || null, ts: new Date().toISOString() }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    renderResult(await res.json());
+  } catch (err) {
+    resultEl.innerHTML = `<span style="color:#f87171;">Error: ${err.message}. Is the backend running at ${backend()}?</span>`;
+  }
+}
+
+document.querySelectorAll(".btn").forEach(btn => {
+  btn.addEventListener("click", () => sendEvent(btn.dataset.type, btn.dataset.target));
+});
+
+document.getElementById("resetBtn").addEventListener("click", async () => {
+  await fetch(`${backend()}/simulate/${sessionId}`, { method: "DELETE" });
+  eventLogEl.innerHTML = "";
+  resultEl.innerHTML = '<span class="loading">Session reset. Click an event to begin...</span>';
+});
+</script>
+</body>
+</html>
