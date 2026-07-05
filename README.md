@@ -92,7 +92,7 @@ same pattern used in the resume-parsing pipeline in a related project —
 retry-with-error-context is more robust than retry-with-identical-prompt.
 
 **Why a plain HTML/JS simulator instead of React?**
-For a 4–6 hour assignment, the simulator's job is to *demo the reasoning
+Currently this is an assignment, i would implement this further in upcoming days, the simulator's job is to *demo the reasoning
 loop*, not showcase frontend framework skill (the backend already does that
 job). A single file with zero build step means a reviewer can open it
 immediately without `npm install`. The classification logic is 100% backend
